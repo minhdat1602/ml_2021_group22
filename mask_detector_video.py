@@ -7,6 +7,10 @@ import cv2
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
+from joblib import load
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.layers import Input
 
 # load faceNet model từ openCV
 # The .prototxt file(s) which define the model architecture (i.e., the layers themselves)
@@ -16,7 +20,11 @@ weightsPath = r"face_detector\res10_300x300_ssd_iter_140000.caffemodel"
 faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
 
 # Load model phát hiện khẩu trang
-maskNet = load_model("mask_detector.model")
+#CNN
+maskNet = load_model("models/cnn.model")
+#SVM
+# maskNet = load("models/svm.joblib")
+# feature_extractor = MobileNetV2(weights="imagenet", include_top=False, input_tensor=Input(shape=(224, 224, 3)))
 
 # function phát hiện khuôn mặt từ faceNet
 # và dự đoán bằng maskNet
@@ -27,7 +35,6 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     # phát hiện khuôn mặt
     faceNet.setInput(blob)
     detections = faceNet.forward()
-    print(detections.shape[2])
 
     # Khởi tạo list các khuôn mặt, vị trí và dự đoán tương ứng
     faces = []
@@ -63,15 +70,20 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     # Tiến hành dự đoán các khuôn mặt.
     if len(faces) > 0:
         faces = np.array(faces, dtype="float32")
+        # CNN
         preds = maskNet.predict(faces, batch_size=32)
-
+        # SVM
+        # X_test_feature = feature_extractor.predict(faces)
+        # X_test_features = X_test_feature.reshape(X_test_feature.shape[0], -1)
+        # prediction_SVM = maskNet.predict(X_test_features)
+        # preds = prediction_SVM
     # trả về vị trí và dự đoán của các khuôn mặt tương ứng.
     return (locs, preds)
 
 
 # Khởi tạo video capture
-print("[INFO] Bất đầu video")
-video_path = r"mangkhautrang.mp4"
+print("[INFO] Bất đầu ghi.....")
+video_path = r"GaiXinhTruongDHNganHang.mp4"
 cap = cv2.VideoCapture(video_path)
 # cap = cv2.VideoCapture(0)
 while True:
@@ -86,13 +98,21 @@ while True:
     for (box, pred) in zip(locs, preds):
         # unpack the bounding box and predictions
         (startX, startY, endX, endY) = box
+        #CNN
         (mask, withoutMask) = pred
+        #SVM
+        # mask, withoutMask = 0, 0
+        # if pred == 0:
+        #     mask = 1
+        # if pred == 1:
+        #     withoutMask = 1
 
         # Kết quả và màu sắc để hiển thị lên hình ảnh
-        label = "Mask" if mask > withoutMask else "No Mask"
-        color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+        label = "Co khau trang" if mask > withoutMask else "Khong khau trang"
+        color = (0, 255, 0) if mask > withoutMask else (0, 0, 255)
 
         # Xác xuất của nhãn
+        #CNN, SVM -> comment
         label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
 
         # Hiển thị kết quả, xác xuất lên ảnh.
